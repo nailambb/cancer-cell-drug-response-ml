@@ -1,0 +1,11 @@
+pandas>=2.2
+numpy>=1.26
+scipy>=1.11
+scikit-learn>=1.4
+matplotlib>=3.8
+seaborn>=0.13
+openpyxl>=3.1      # pd.read_excel for the GDSC2 .xlsx
+pyarrow>=15        # parquet caching
+xgboost>=2.0
+shap>=0.45
+ipykernel>=6.29    # running the notebooks
