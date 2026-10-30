@@ -60,19 +60,48 @@ Rejected: Gefitinib (almost all lines resistant, AUC std 0.045), Docetaxel 1007
 
 ## Methods
 
-TODO: preprocessing (variance filtering), models (Ridge, Lasso, Elastic Net,
-Random Forest, XGBoost), CV strategy (KFold and tissue-grouped GroupKFold, with
-lineages under 10 lines merged into "Other"), metrics (R², RMSE, Spearman ρ).
-Feature selection and scaling are fit inside CV folds to avoid leakage.
+- **Preprocessing:** `src/data_preprocessing.py` builds `X` (log2(TPM+1) expression),
+  `y` (GDSC2 AUC) and `groups` (OncotreeLineage; lineages with fewer than 10 lines
+  merged into "Other") for a given `DRUG_ID`. Nothing in this step learns from the data.
+- **Models:** mean predictor (Dummy), Ridge, Elastic Net, Random Forest, plus a
+  **lineage-mean baseline** that predicts each line's AUC as the training-fold mean
+  of its tissue, using no expression.
+- **Pipeline:** variance filter → `SelectKBest(f_regression)` → standard scaler →
+  model, all inside the CV folds so nothing leaks from the test fold.
+- **Evaluation:** nested CV (inner 3-fold `GridSearchCV` for tuning, outer 5-fold
+  for evaluation) under two schemes: random `KFold`, and `GroupKFold` by lineage
+  (whole tissues held out). Metrics: R², RMSE, Spearman ρ on pooled
+  out-of-fold predictions.
 
-## Results
+## Results (Dabrafenib, ID 1373, n = 711)
 
-TODO: results table and figures from `reports/figures/`.
+| Model | KFold R² | KFold ρ | Group R² | Group ρ |
+|---|---|---|---|---|
+| Dummy (mean) | -0.001 | -0.02 | -0.029 | -0.08 |
+| Lineage mean (no expression) | 0.289 | 0.280 | -0.029 | -0.08 |
+| Ridge | 0.317 | 0.353 | -0.047 | 0.256 |
+| Elastic Net | 0.215 | 0.206 | -0.045 | 0.148 |
+| Random Forest | 0.325 | 0.289 | -0.002 | 0.228 |
+
+**Findings so far**
+1. Under random splits, a tissue-only baseline (R² 0.29) captures most of what the
+   expression models achieve (R² 0.32), so most of the apparent signal is tissue of origin.
+2. Under tissue-held-out CV, no model beats the mean predictor on R², so random-split
+   CV overstates how well these models generalize to unseen tissues.
+3. Ridge and RF keep a positive pooled Spearman under group CV; whether that reflects
+   within-tissue signal is still to be tested.
+
+**In progress:** within-lineage Spearman, Elastic Net grid fix (including Lasso),
+XGBoost, SHAP/coefficient analysis against BRAF biology, and Paclitaxel.
 
 ## Limitations
 
-TODO: e.g. cell lines are not patients; expression-only features; small sensitive
-subgroups for targeted drugs; models may partly learn tissue of origin.
+- Cell lines are not patients, and expression is the only feature type.
+- The sensitive tail for Dabrafenib is small and concentrated in a few lineages
+  (mainly melanoma), so grouped CV removes most of the signal.
+- Elastic Net's grid was not yet tuned well; its result should not be read as a
+  property of the method.
+- Results are for one drug so far.
 
 ## Repo structure
 
